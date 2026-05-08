@@ -1,5 +1,5 @@
 from pymongo import MongoClient
-from generation.video_metadata_mongo import generate_video_metadata
+from scripts.generation.video_metadata_mongo import generate_video_metadata
 from config import DBM_HOST, DBM_PORT
 
 BATCH_SIZE = 5000
