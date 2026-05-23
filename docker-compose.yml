@@ -13,7 +13,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin
-      POSTGRES_DB: platform_db   
+      POSTGRES_USER: ${DB_USER} 
+      POSTGRES_PASSWORD: ${DB_PASSWORD} 
+      POSTGRES_DB: ${DB_NAME} 
+
+  fake-gcs:
+    image: fsouza/fake-gcs-server
+    ports:
+      - "4443:4443"
+    command: -scheme http        
 
