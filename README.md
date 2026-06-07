@@ -1,16 +1,15 @@
 # End-to-End Sports Streaming Data Platform
 
-> Under active development, Full documentation will be added progressively.
+> **Note:** Under active development. Full documentation will be added progressively.
 
-## Local-First Development Approach
+## Architecture & Setup (Local-First)
+This project utilizes a hybrid local-cloud setup to avoid cloud free-tier limitations during development:
 
-Because most real cloud platforms and managed services provide limited free trial periods,
-the project is currently being developed using a hybrid local-cloud setup.
+- **Streaming & Ingestion:** Workflows connected through **Aiven Cloud Kafka**.
+- **Bronze Layer Storage:** Simulated locally using **Fake GCS**.
+- **Data Pipeline:** Developed and tested entirely via **Docker & Spark** before full cloud migration.
 
-Current architecture:
-- Streaming and ingestion workflows are connected through Aiven Cloud
-- Bronze layer storage is simulated locally using Fake GCS
-- Data pipelines are developed and tested locally before full cloud migration
-
-This approach allows continuous development without being restricted by short trial periods,
-while keeping the architecture ready for future deployment on real cloud services.
+## Repository Structure
+- `docs/`: Contains development notes and technical logs.
+- `scripts/`: Ingestion and processing scripts.
+- `docker-compose.yml`: Local infrastructure setup (Spark, Databases, Fake GCS).

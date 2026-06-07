@@ -1,8 +1,4 @@
-version: "3.8"
-
 services:
-
-
   mongo:
     image: mongo:7
     ports:
@@ -21,5 +17,71 @@ services:
     image: fsouza/fake-gcs-server
     ports:
       - "4443:4443"
-    command: -scheme http        
+    volumes:
+      - gcs_data:/data
+    command: 
+      - -scheme=http
+      - -backend=filesystem
+      - -filesystem-root=/data
 
+
+
+  
+  spark-master:
+    build:
+      context: .
+      target: spark-base
+    container_name: spark-master
+    hostname: spark-master
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master --host spark-master --port 7077 --webui-port 8080
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    volumes:
+      - gcs_data:/data
+    networks:
+      - spark-net
+
+  spark-worker:
+    build:
+      context: .
+      target: spark-base
+    container_name: spark-worker
+    hostname: spark-worker
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker -c 2 -m 2g spark://spark-master:7077
+    environment:
+      - SPARK_WORKER_WEBUI_PORT=8081
+    ports:
+      - "8081:8081"
+    volumes:
+      - gcs_data:/data
+      - ./:/home/jovyan/work
+    depends_on:
+      - spark-master
+    networks:
+      - spark-net
+
+  jupyter:
+    build:
+      context: .
+      target: jupyter
+    container_name: jupyter
+    hostname: jupyter
+    user: "root"
+    command: bash -c "chmod -R 777 /data && jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.token='' --allow-root"
+    ports:
+      - "8888:8888"
+      - "4040-4045:4040-4045"
+    volumes:
+      - gcs_data:/data
+      - ./:/home/jovyan/work
+    depends_on:
+      - spark-master
+    networks:
+      - spark-net
+
+networks:
+  spark-net:
+    driver: bridge
+volumes:
+    gcs_data:          
