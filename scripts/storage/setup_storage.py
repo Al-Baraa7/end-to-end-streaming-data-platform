@@ -11,12 +11,12 @@ client = storage.Client(
 
 # bucket_name = "end-to-end-streaming-data-platform"
 bucket_name_silver = "end-to-end-streaming-data-platform-silver"
-bucket_name_gold = "end-to-end-streaming-data-platform-gold"
-for name in [bucket_name_silver,bucket_name_gold]:   
-    try:
-        bucket=client.create_bucket(name)
-        print(f"Bucket created: {name}")
+# bucket_name_gold = "end-to-end-streaming-data-platform-gold"
+   
+try:
+    bucket=client.create_bucket(bucket_name_silver)
+    print(f"Bucket created: {bucket_name_silver}")
 
-    except Exception as e:
-        bucket= client.bucket(name)
-        print(f"ERROR: {e}") 
+except Exception as e:
+    bucket= client.bucket(bucket_name_silver)
+    print(f"ERROR: {e}") 

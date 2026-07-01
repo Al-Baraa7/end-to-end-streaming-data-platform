@@ -39,8 +39,7 @@ services:
       - "7077:7077"
     volumes:
       - gcs_data:/data
-    networks:
-      - spark-net
+    
 
   spark-worker:
     build:
@@ -58,8 +57,7 @@ services:
       - ./:/home/jovyan/work
     depends_on:
       - spark-master
-    networks:
-      - spark-net
+    
 
   jupyter:
     build:
@@ -77,11 +75,8 @@ services:
       - ./:/home/jovyan/work
     depends_on:
       - spark-master
-    networks:
-      - spark-net
+    
 
-networks:
-  spark-net:
-    driver: bridge
+
 volumes:
     gcs_data:          
