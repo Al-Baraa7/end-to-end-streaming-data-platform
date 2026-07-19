@@ -12,7 +12,7 @@ This project simulates a real-world sports-streaming platform's data infrastruct
 
 It ingests data from multiple heterogeneous sources (PostgreSQL, MongoDB, and Kafka events), processes it through a Medallion Architecture (Bronze → Silver → Gold), and is designed around an event-driven, streaming-first philosophy — currently implemented as scheduled batch processing while the full continuous-streaming pipeline is developed.
 
-The data infrastructure runs primarily on local Docker containers (Spark, databases, and a simulated GCS environment), with Kafka streaming managed via Aiven Cloud — a hybrid local-cloud setup adopted as a deliberate Phase 1 strategy to avoid cloud free-tier limitations during active development, with full cloud migration planned for Phase 2.
+The data infrastructure runs primarily on local Docker containers (Spark, databases, and a MinIO(S3-compatible local storage)), with Kafka streaming managed via Aiven Cloud — a hybrid local-cloud setup adopted as a deliberate Phase 1 strategy to avoid cloud free-tier limitations during active development, with full cloud migration planned for Phase 2.
 
 ```mermaid
 flowchart LR
@@ -22,8 +22,8 @@ flowchart LR
 
     BZ --> SV[Silver Layer]
     SV --> GD[Gold Layer]
-    GD --> BQ[BigQuery Simulation]
-    BQ --> PBI[Power BI]
+    GD --> DK[DuckDB]
+    DK --> PBI[Power BI]
 
     style BZ fill:#cd7f32
     style SV fill:#c0c0c0
@@ -38,9 +38,9 @@ flowchart LR
 | MongoDB | NoSQL source system | Simulates semi-structured/document-based data |
 | Kafka (Aiven Cloud) | Event streaming backbone | Decouples event production from consumption; enables event-driven architecture |
 | Apache Spark | Distributed processing engine | Powers Bronze → Silver → Gold transformations across the pipeline |
-| Docker | Local infrastructure orchestration | Runs the full stack (Spark, databases, fake-gcs) consistently across environments |
-| fake-gcs-server | Simulated cloud storage | Mimics Google Cloud Storage locally, avoiding cloud costs during development |
-| BigQuery (planned) | Analytics warehouse simulation | Target layer for Gold-level analytical queries |
+| Docker | Local infrastructure orchestration | Runs the full stack (Spark, PostgresSQL,   MongoDB, MinIO) consistently across environments |
+| MinIO               | Simulated cloud storage            | S3-compatible local storage; stable native integration with Spark via Hadoop S3A  |
+| DuckDB (planned)    | Analytics warehouse                | Lightweight analytical layer for Gold-level queries; direct Power BI integration  |
 | Power BI (planned) | Business intelligence layer | Final visualization layer for stakeholders |
 
 ## Current Status
@@ -51,7 +51,7 @@ flowchart LR
 - 🔄 Silver Layer: In Progress (PostgreSQL — currently midway)
 - ⏳ Mongo & Kafka Silver processing: Not started
 - ⏳ Gold Layer: Not started
-- ⏳ BigQuery Simulation & Power BI: Planned
+- ⏳ DuckDB (Gold Layer) & Power BI: Planned
 
 
 ## Quick Start
@@ -75,9 +75,9 @@ flowchart LR
    python scripts/load_mongo.py
    ```
 
-4. Start the simulated cloud storage service (fake-gcs):
+4. Start the simulated cloud storage service (Minio):
    ```bash
-   docker-compose up -d fake-gcs
+   docker-compose up -d minio
    ```
 
 5. Set up storage buckets for each Medallion layer:
@@ -117,7 +117,7 @@ At this point, raw data is persisted in the Bronze bucket as Parquet files, moun
 ├── docs/                       # Development notes and technical logs
 ├── kafka_scripts/               # Kafka producer script (currently single-file; planned for future expansion)
 ├── scripts/
-│   ├── storage/                  # All storage-layer logic (currently fake-gcs based)
+│   ├── storage/                  # All storage-layer logic (currently MinIO based)
 │   │   ├── bronze/              # Kafka consumer + Bronze-layer ingestion
 │   │   ├── silver/notebooks/    # Silver-layer processing notebooks
 │   │   └── setup_storage.py     # Bucket initialization
