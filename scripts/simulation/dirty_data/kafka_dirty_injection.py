@@ -38,7 +38,9 @@ class KafkaDirtyDataInjector:
 
             
             elif index == 6:
-                event.event_timestamp = "not-a-timestamp"
+                # Valid ISO8601 format but logically impossible (Unix epoch)
+                # Prevents downstream Spark/Flink parser crashes while preserving dirty semantics
+                event.event_timestamp = "1970-01-01T00:00:00Z"
 
             yield event
 

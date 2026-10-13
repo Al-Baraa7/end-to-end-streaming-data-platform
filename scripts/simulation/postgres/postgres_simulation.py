@@ -1,4 +1,6 @@
 
+from datetime import datetime
+
 from scripts.simulation.id_generator import IDGenerator
 from scripts.simulation.postgres.payment_factory import PaymentFactory
 from scripts.simulation.random_provider import RandomProvider
@@ -55,10 +57,11 @@ class PostgresSimulation:
         self,
         *,
         user_id: str,
+        start_date: datetime | None = None,
     ):
         return self.subscription_factory.create(
             user_id=user_id,
-            start_date=self.clock.now(),
+            start_date=start_date if start_date is not None else self.clock.now(),
         )
 
     def generate_payment_chain(
@@ -140,11 +143,6 @@ class PostgresSimulation:
                     "type": "payment_created",
                     "data": payment,
                 }
-
-            if subscription.end_date is not None:
-                self.clock.set(
-                    subscription.end_date
-                )
 
     def generate_users(
         self,
