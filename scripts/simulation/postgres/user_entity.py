@@ -1,3 +1,9 @@
+"""User Entity — Phase 2: PostgreSQL Entity Generation (User Schema)
+
+Schema definition for a PostgreSQL user entity.
+See README.md#phase-markers-used-in-code-comments
+"""
+
 from datetime import datetime
 
 class UserEntity:

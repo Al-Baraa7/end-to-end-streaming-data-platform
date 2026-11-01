@@ -1,10 +1,17 @@
-from datetime import timedelta
+"""User Simulation — Phase 2/8: PostgreSQL User Lifecycle (R1/R8)
 
-from scripts.simulation.clock import BusinessClock
-from scripts.simulation.random_provider import RandomProvider
-from scripts.simulation.postgres.user_entity import UserEntity
-from scripts.simulation.postgres.user_factory import UserFactory
-from scripts.simulation.postgres.user_lifecycle import UserLifecycle
+Orchestrates user creation, login, and R8 lifecycle evaluation.
+Uses per-user clock forks (R1) to avoid mutating the master cursor.
+See README.md#phase-markers-used-in-code-comments
+"""
+
+from datetime import datetime, timedelta
+
+from ..clock import BusinessClock
+from ..random_provider import RandomProvider
+from .user_entity import UserEntity
+from .user_factory import UserFactory
+from .user_lifecycle import UserLifecycle
 
 
 class UserSimulation:
@@ -46,7 +53,18 @@ class UserSimulation:
         *,
         user: UserEntity,
         days_after_creation: int,
+        clock: BusinessClock | None = None,
     ) -> UserEntity:
+        """
+        Record the user's most recent login instant.
+
+        `clock` defaults to this simulation's master cursor (standalone usage). The
+        live orchestrator passes a per-user FORK anchored at the user's creation
+        time, so the login lands inside the user's own timeline while the master
+        cursor is never mutated (R1).
+        """
+
+        active_clock = clock if clock is not None else self.clock
 
         if days_after_creation < 0:
             raise ValueError(
@@ -58,15 +76,15 @@ class UserSimulation:
             + timedelta(days=days_after_creation)
         )
 
-        if login_time < self.clock.now():
+        if login_time < active_clock.now():
             raise ValueError(
                 "Login time cannot be before current simulation time"
             )
 
-        if login_time > self.clock.now():
-            delta = login_time - self.clock.now()
+        if login_time > active_clock.now():
+            delta = login_time - active_clock.now()
 
-            self.clock.advance(
+            active_clock.advance(
                 seconds=int(delta.total_seconds())
             )
 
@@ -79,13 +97,27 @@ class UserSimulation:
         *,
         user: UserEntity,
         last_payment_at=None,
+        has_premium_subscription: bool = False,
+        now: datetime | None = None,
     ) -> UserEntity:
+        """
+        Evaluate (and backfill) the user's account status.
 
-        user.account_status = self.lifecycle.evaluate(
+        `now` defaults to the clock cursor; the live orchestrator evaluates at
+        SIMULATION_END so the persisted `account_status` describes the account at
+        the end of the horizon (R8) rather than at whichever instant the master
+        cursor happened to stop on.
+
+        Uses `lifecycle.evaluate_until_stable()` so long payment gaps can reach
+        the terminal `deleted` state within a single call.
+        """
+
+        user.account_status = self.lifecycle.evaluate_until_stable(
             created_at=user.created_at,
             last_payment_at=last_payment_at,
             current_status=user.account_status,
-            now=self.clock.now(),
+            now=now if now is not None else self.clock.now(),
+            has_premium_subscription=has_premium_subscription,
         )
 
         return user

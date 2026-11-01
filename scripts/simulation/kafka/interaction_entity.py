@@ -1,3 +1,9 @@
+"""Interaction Entity — Phase 3: Kafka Event Emission (Schema)
+
+Schema definition for a single Kafka video interaction event.
+See README.md#phase-markers-used-in-code-comments
+"""
+
 from datetime import datetime
 
 

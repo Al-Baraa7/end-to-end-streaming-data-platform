@@ -1,4 +1,11 @@
+"""RandomProvider — Phase 2: Identity & Randomness
+
+Single shared RNG instance (seed=42) for bit-for-bit deterministic replay across all modules.
+See README.md#phase-markers-used-in-code-comments
+"""
+
 import random
+import math
 
 
 class RandomProvider:
@@ -27,3 +34,34 @@ class RandomProvider:
             population,
             k=k,
         )
+
+    def uniform(self, a: float, b: float) -> float:
+        return self._random.uniform(a, b)
+
+    def gauss(self, mu: float, sigma: float) -> float:
+        return self._random.gauss(mu, sigma)
+
+    def poisson(self, lam: float) -> int:
+        """
+        Sample from Poisson(lam) - the expectation behind the event-volume model.
+
+        Knuth's algorithm for lam < 30, normal approximation above it, so no upper
+        cap is needed. lambda is deliberately never clipped: capping it would pull
+        the realised mean below the video's declared latent popularity.
+        """
+        if lam <= 0:
+            return 0
+
+        if lam < 30:
+            # Knuth's algorithm
+            L = math.exp(-lam)
+            k = 0
+            p = 1.0
+            while p > L:
+                k += 1
+                p *= self._random.random()
+            return k - 1
+        else:
+            # Normal approximation for large lambda
+            # Poisson(lam) ≈ Normal(lam, sqrt(lam))
+            return max(0, int(self.gauss(lam, math.sqrt(lam)) + 0.5))

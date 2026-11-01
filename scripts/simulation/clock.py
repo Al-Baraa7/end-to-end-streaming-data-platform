@@ -1,3 +1,12 @@
+"""BusinessClock — Phase 1: Temporal Isolation (R1)
+
+Time travel primitives for deterministic simulation. Single master cursor + forks for per-entity timelines.
+See README.md#phase-markers-used-in-code-comments
+"""
+
+from __future__ import annotations
+
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 
 
@@ -97,3 +106,47 @@ class BusinessClock:
             return None
         remaining = self._simulation_end - self._current_time
         return remaining if remaining.total_seconds() > 0 else timedelta(0)
+
+    # -- Phase 1: Temporal Isolation Primitives --
+
+    def fork(self, *, start_at: datetime | None = None) -> "BusinessClock":
+        """
+        Create an independent child clock sharing the same simulation horizon
+        but with its own cursor. The child starts at `start_at` (or current time
+        if not provided) and respects the parent's simulation_end boundary.
+
+        Use this for per-entity timelines (e.g., one clock per subscription's
+        payment chain) so that global clock position remains stable.
+        """
+        child_start = start_at if start_at is not None else self._current_time
+        return BusinessClock(
+            child_start,
+            simulation_end=self._simulation_end,
+        )
+
+    @contextmanager
+    def with_time(self, target: datetime):
+        """
+        Temporarily set the clock to `target`, execute the block, then restore
+        the original cursor. Use for scoped time travel without side effects.
+
+        Example:
+            with clock.with_time(user.created_at):
+                # All factories see user.created_at as "now"
+                subscription = factory.create(user_id=..., start_date=clock.now())
+        """
+        if target.tzinfo is None:
+            raise ValueError("Target time must be timezone-aware")
+        target = target.astimezone(timezone.utc)
+
+        if self._simulation_end is not None and target > self._simulation_end:
+            raise ValueError(
+                f"Target time {target} exceeds simulation horizon {self._simulation_end}"
+            )
+
+        previous = self._current_time
+        self._current_time = target
+        try:
+            yield
+        finally:
+            self._current_time = previous

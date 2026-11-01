@@ -1,5 +1,12 @@
 
 
+"""Video Events Producer — Phase 3: Kafka Event Emission (Transport)
+
+Produces InteractionEntity events to Kafka topic `video_interactions`.
+Optional dirty-injection hook for anomaly testing.
+See README.md#phase-markers-used-in-code-comments
+"""
+
 import json
 
 from kafka import KafkaProducer
@@ -11,9 +18,9 @@ from config import (
     KAFKA_CA_CERT,
 )
 
-from scripts.simulation.clock import BusinessClock
-from scripts.simulation.kafka.interaction_factory import InteractionFactory
-from scripts.simulation.random_provider import RandomProvider
+from ..clock import BusinessClock
+from .interaction_factory import InteractionFactory
+from ..random_provider import RandomProvider
 
 
 TOPIC_NAME = "video_interactions"
@@ -96,6 +103,7 @@ def run_producer(
     video_ids,
     event_count: int,
     dirty_injector=None,
+    anomaly_rate: float = 0.0,
     events=None,  # NEW: optional pre-generated events
 ):
     if events is not None:
@@ -112,9 +120,10 @@ def run_producer(
             count=event_count,
         )
 
-    if dirty_injector is not None:
+    if dirty_injector is not None and anomaly_rate > 0:
         event_generator = dirty_injector.inject(
-            events=event_generator
+            events=event_generator,
+            anomaly_rate=anomaly_rate,
         )
 
     producer = create_producer()

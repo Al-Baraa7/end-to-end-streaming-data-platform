@@ -128,39 +128,28 @@ BATCH_SIZE = 1000
 
 
 def create_tables(cur):
+    # Drop old enum types if they exist (clean up from previous runs)
     cur.execute("""
-        DO $$ BEGIN
-            CREATE TYPE account_status_enum
-            AS ENUM ('active', 'suspended', 'deleted');
-        EXCEPTION
-            WHEN duplicate_object THEN NULL;
-        END $$;
-    """)
-
-    cur.execute("""
-        DO $$ BEGIN
-            CREATE TYPE plan_type_enum
-            AS ENUM ('free', 'premium');
-        EXCEPTION
-            WHEN duplicate_object THEN NULL;
-        END $$;
-    """)
-
-    cur.execute("""
-        DO $$ BEGIN
-            CREATE TYPE payment_status_enum
-            AS ENUM ('success', 'failed');
-        EXCEPTION
-            WHEN duplicate_object THEN NULL;
-        END $$;
+        DROP TYPE IF EXISTS account_status_enum CASCADE;
+        DROP TYPE IF EXISTS plan_type_enum CASCADE;
+        DROP TYPE IF EXISTS payment_status_enum CASCADE;
+        DROP TYPE IF EXISTS subscription_status_enum CASCADE;
+        DROP TYPE IF EXISTS billing_reason_enum CASCADE;
+        DROP TYPE IF EXISTS content_type_enum CASCADE;
+        DROP TYPE IF EXISTS payment_method_enum CASCADE;
+        DROP TYPE IF EXISTS video_status_enum CASCADE;
+        DROP TYPE IF EXISTS currency_enum CASCADE;
+        DROP TYPE IF EXISTS country_enum CASCADE;
+        DROP TYPE IF EXISTS device_type_enum CASCADE;
+        DROP TYPE IF EXISTS interaction_type_enum CASCADE;
     """)
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id UUID PRIMARY KEY,
             email TEXT,
-            country TEXT,
-            account_status account_status_enum,
+            country VARCHAR(10),
+            account_status VARCHAR(50),
             created_at TIMESTAMP,
             last_login TIMESTAMP
         );
@@ -170,12 +159,35 @@ def create_tables(cur):
         CREATE TABLE IF NOT EXISTS subscription (
             subscription_id UUID PRIMARY KEY,
             user_id UUID REFERENCES users(user_id),
-            plan_type plan_type_enum,
+            plan_type VARCHAR(50),
             start_date TIMESTAMP,
             end_date TIMESTAMP,
             is_active BOOLEAN,
-            auto_renew BOOLEAN
+            auto_renew BOOLEAN,
+            status VARCHAR(50) NOT NULL DEFAULT 'active'
         );
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS plan_pricing (
+            plan_type VARCHAR(50) NOT NULL,
+            duration_days INT NOT NULL,
+            amount NUMERIC NOT NULL,
+            currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+            PRIMARY KEY (plan_type, duration_days)
+        );
+    """)
+
+    # Phase 5 - R15 Gold DDL Change: Seed the single plan/pricing table as the only source of amounts
+    cur.execute("""
+        INSERT INTO plan_pricing (plan_type, duration_days, amount, currency)
+        VALUES
+            ('free', 30, 0.00, 'USD'),
+            ('free', 90, 0.00, 'USD'),
+            ('premium', 30, 9.99, 'USD'),
+            ('premium', 90, 14.99, 'USD'),
+            ('premium', 365, 29.99, 'USD')
+        ON CONFLICT (plan_type, duration_days) DO NOTHING;
     """)
 
     cur.execute("""
@@ -183,10 +195,15 @@ def create_tables(cur):
             payment_id UUID PRIMARY KEY,
             subscription_id UUID
                 REFERENCES subscription(subscription_id),
+            user_id UUID
+                REFERENCES users(user_id),
             amount NUMERIC,
-            currency TEXT,
+            currency VARCHAR(10),
             payment_date TIMESTAMP,
-            payment_status payment_status_enum
+            payment_status VARCHAR(50),
+            -- Phase 5 - R15 Gold DDL Change: attempt_no + billing_reason on PaymentEntity
+            attempt_no INT NOT NULL DEFAULT 1,
+            billing_reason VARCHAR(50) NOT NULL DEFAULT 'initial'
         );
     """)
 
@@ -264,10 +281,13 @@ def insert_payments(cur, payments):
         (
             payment.payment_id,
             payment.subscription_id,
+            payment.user_id,
             payment.amount,
             payment.currency,
             payment.payment_date,
             payment.payment_status,
+            payment.attempt_no,
+            payment.billing_reason,
         )
         for payment in payments
     ]
@@ -281,10 +301,13 @@ def insert_payments(cur, payments):
         INSERT INTO payments (
             payment_id,
             subscription_id,
+            user_id,
             amount,
             currency,
             payment_date,
-            payment_status
+            payment_status,
+            attempt_no,
+            billing_reason
         )
         VALUES %s
         """,

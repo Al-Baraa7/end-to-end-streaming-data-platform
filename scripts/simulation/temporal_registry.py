@@ -1,15 +1,13 @@
-"""
-TemporalRegistry — Single Source of Truth for Cross-System Referential Integrity
+"""TemporalRegistry — Phase 1: Temporal Isolation (R7)
 
-Provides timezone-aware validation of user subscription state and video availability
-at any given simulation timestamp. Designed for use during simulation (in-memory)
-and by downstream consumers (Spark/Flink/SQL jobs) against persisted data.
+Immutable eligibility map for Kafka event sampling. Loads paid subscriptions + active users + available videos.
+Computes composite `is_valid_event()` gate. See README.md#phase-markers-used-in-code-comments
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 from dataclasses import dataclass
 
 
@@ -57,25 +55,63 @@ class TemporalRegistry:
         self._video_windows: Dict[str, VideoWindow] = {}
         self._loaded = False
 
-    # ---------------------------------------------------------------------
-    # Loading API
-    # ---------------------------------------------------------------------
+        # R7 eligibility gate (see load_from_memory). None == "no gating", so the
+        # registry keeps working exactly as before for callers that do not model
+        # payments/account status (downstream ETL, tests, notebooks).
+        self._paid_subscription_ids: Optional[Set[str]] = None
+        self._active_user_ids: Optional[Set[str]] = None
+        self._gated_out_subscriptions = 0
+
+    # -- Phase 1: Loading API --
 
     def load_from_memory(
         self,
         subscriptions: List[dict],
         videos: List[dict],
+        *,
+        paid_subscription_ids: Optional[Iterable[str]] = None,
+        active_user_ids: Optional[Iterable[str]] = None,
     ) -> None:
         """
         Load intervals from in-memory simulation objects (dicts with datetime fields).
 
-        Expected subscription dict keys: user_id, start_date, end_date
+        Expected subscription dict keys: user_id, start_date, end_date, subscription_id
         Expected video dict keys: video_id, created_at, live_start_at, live_end_at
+
+        R7 eligibility gate (optional; both default to "no gating"):
+
+        * `paid_subscription_ids` — only windows whose `subscription_id` appears
+          here are loaded, so the registry can never serve a window that was not
+          actually PAID FOR (R6: a premium window without a successful payment).
+        * `active_user_ids` — only these users can pass
+          `user_has_active_subscription()`, so an account the R8 lifecycle
+          evaluation suspended or deleted can no longer consume content, no matter
+          how many (paid) windows it still owns.
+
+        Gating happens at LOAD time, not per probe, so the hot path in the event
+        loop stays a plain interval scan.
         """
         self._subscription_intervals.clear()
         self._video_windows.clear()
 
+        self._paid_subscription_ids = (
+            set(paid_subscription_ids) if paid_subscription_ids is not None else None
+        )
+        self._active_user_ids = (
+            set(active_user_ids) if active_user_ids is not None else None
+        )
+        self._gated_out_subscriptions = 0
+
         for sub in subscriptions:
+            if (
+                self._paid_subscription_ids is not None
+                and sub.get("subscription_id") not in self._paid_subscription_ids
+            ):
+                # R7: unpaid (or rejected) window - never loaded, so it can never
+                # be sampled. Counted so the loss is observable, never silent.
+                self._gated_out_subscriptions += 1
+                continue
+
             user_id = sub["user_id"]
             start = self._normalize(sub["start_date"])
             end = self._normalize(sub["end_date"])
@@ -114,15 +150,21 @@ class TemporalRegistry:
         """
         raise NotImplementedError("Wire this when downstream ETL needs direct DB access")
 
-    # ---------------------------------------------------------------------
-    # Core Validation API
-    # ---------------------------------------------------------------------
+    # -- Phase 1: Core Validation API --
 
     def user_has_active_subscription(self, user_id: str, ts: datetime) -> bool:
         """
         Return True if the user has at least one subscription active at timestamp ts.
+
+        R7: when an active-user gate was supplied to `load_from_memory()`, an
+        account that is no longer `active` (suspended/deleted by the R8 lifecycle
+        evaluation) returns False even if a paid window covers ts.
         """
         self._ensure_loaded()
+
+        if self._active_user_ids is not None and user_id not in self._active_user_ids:
+            return False
+
         ts = self._normalize(ts)
 
         intervals = self._subscription_intervals.get(user_id)
@@ -173,24 +215,45 @@ class TemporalRegistry:
             and self.video_is_available(video_id, ts)
         )
 
-    # ---------------------------------------------------------------------
-    # Introspection / Debugging
-    # ---------------------------------------------------------------------
+    # -- Phase 1: Introspection / Debugging --
 
     def get_user_subscription_count(self, user_id: str) -> int:
-        """Number of subscription intervals loaded for a user."""
+        """Number of subscription intervals loaded for a user.
+
+        R7-gated windows are not loaded at all, so they are not counted.
+        """
         return len(self._subscription_intervals.get(user_id, []))
+
+    @property
+    def gated_out_subscription_count(self) -> int:
+        """R7 telemetry: windows rejected by the paid-subscription gate at load time."""
+        return self._gated_out_subscriptions
+
+    @property
+    def active_user_ids(self) -> Optional[Set[str]]:
+        """The R7 account-status gate, or None when gating is disabled."""
+        return self._active_user_ids
 
     def get_video_window(self, video_id: str) -> Optional[VideoWindow]:
         """Retrieve the availability window for a video (for debugging)."""
         return self._video_windows.get(video_id)
 
+    @property
+    def video_windows(self) -> Dict[str, VideoWindow]:
+        """
+        All loaded video availability windows (read-only copy).
+
+        Lets callers reason about EVERY video at once - e.g. the R13 invariant that
+        each video has at least one timestamp this registry can actually serve -
+        instead of probing one id at a time.
+        """
+        self._ensure_loaded()
+        return dict(self._video_windows)
+
     def is_loaded(self) -> bool:
         return self._loaded
 
-    # ---------------------------------------------------------------------
-    # Internal Helpers
-    # ---------------------------------------------------------------------
+    # -- Phase 1: Internal Helpers --
 
     def _ensure_loaded(self) -> None:
         if not self._loaded:

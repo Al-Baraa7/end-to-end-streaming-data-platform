@@ -1,7 +1,13 @@
+"""User Factory — Phase 2: PostgreSQL Entity Generation (Users)
+
+Generates user attributes for PostgreSQL simulation.
+See README.md#phase-markers-used-in-code-comments
+"""
+
 from faker import Faker
 
-from scripts.simulation.id_generator import IDGenerator
-from scripts.simulation.random_provider import RandomProvider
+from ..id_generator import IDGenerator
+from ..random_provider import RandomProvider
 
 
 class UserFactory:
