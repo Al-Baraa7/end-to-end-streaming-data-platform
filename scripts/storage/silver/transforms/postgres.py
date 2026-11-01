@@ -49,6 +49,7 @@ SUBSCRIPTIONS_SILVER_SCHEMA = StructType([
 PAYMENTS_SILVER_SCHEMA = StructType([
     StructField("payment_id", StringType(), False),
     StructField("subscription_id", StringType(), False),
+    StructField("user_id", StringType(), False),
     StructField("amount", DecimalType(10, 2), False),
     StructField("currency", StringType(), False),
     StructField("payment_date", TimestampType(), False),
