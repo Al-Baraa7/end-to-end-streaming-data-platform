@@ -1,15 +1,14 @@
-"""Simulation Orchestrator — Phase 9: End-to-End Pipeline (R1–R13)
+"""Simulation Orchestrator — Orchestration: Full 8-Phase Pipeline (R1–R19)
 
-Main entry point for the full simulation pipeline:
-  1. Phase 1: Temporal isolation (BusinessClock, TemporalRegistry)
-  2. Phase 2: Identity & Randomness (IDGenerator, RandomProvider, MatchRegistry)
-  3. Phase 3: Kafka Schema & Assembly (InteractionEntity, InteractionFactory)
-  4. Phase 4: Session Topology (SessionFactory)
-  5. Phase 5: Anomaly Injection (AnomalyCoordinator, *DirtyInjectors)
-  6. Phase 6: R6 Payment Rules (BillingEligibility)
-  7. Phase 7: R6+R7 Derived Map (BillingEligibility.apply_activation_gate)
-  8. Phase 8: Account Status (UserLifecycle)
-  9. Phase 9: Invariants (R1/R2, R4, R5, R13)
+Main entry point for the full simulation pipeline (8-Phase Architecture):
+  1. Initialize — Clock, shared RandomProvider, MatchRegistry setup.
+  2. PostgreSQL Execution — Generate Users, Subscriptions, Payments (Gate I).
+  3. MongoDB Content Setup — Build video metadata artifacts.
+  4. Temporal State Building — Global metadata and availability map (Gate II).
+  5. Session Engineering — Generate engagement-tiered viewing sessions.
+  6. Event Pipeline Flattening — Kafka transaction bounds (Gate III).
+  7. Dirty Data Injection — Micro-mutate pristine copies via Coordinator (Gate IV).
+  8. Load & Produce — Final parallel bulk load and production to databases.
 
 See README.md#phase-markers-used-in-code-comments
 """
@@ -597,16 +596,23 @@ def main():
     all_sessions = []
     total_sessions_planned = 0
     
-    # Calculate simulation duration in years for session count scaling
-    sim_duration_years = (SIMULATION_END - clock.now()).total_seconds() / (365.25 * 24 * 3600)
+    # Map user_id -> user entity for per-user created_at lookup
+    user_by_id = {u.user_id: u for u in users}
     
     for user_id in user_ids:
+        user = user_by_id[user_id]
         profile = user_profiles[user_id]
-        # Scale sessions_per_year by simulation duration (M-3: round to eliminate systematic truncation deficit)
+
+        # Per-user simulation duration: from THIS user's creation to horizon
+        sim_duration_years = (SIMULATION_END - user.created_at).total_seconds() / (365.25 * 24 * 3600)
+
+        # Scale sessions_per_year by THIS user's individual simulation duration
         target_sessions = max(1, round(profile.sessions_per_year * sim_duration_years))
+
+        # FIX: Use user's created_at as simulation_start (not global clock.now())
         user_sessions = session_factory.generate_user_sessions(
             user_id=user_id,
-            simulation_start=clock.now(),
+            simulation_start=user.created_at,
             simulation_end=SIMULATION_END,
             target_session_count=target_sessions,
         )
@@ -741,7 +747,7 @@ def main():
     event_count = len(all_events)
     
     coordinator = create_coordinator(
-        seed=RANDOM_SEED,
+        random_provider=random_provider,
         user_count=USER_COUNT,
         subscription_count=subscription_count,
         payment_count=payment_count,

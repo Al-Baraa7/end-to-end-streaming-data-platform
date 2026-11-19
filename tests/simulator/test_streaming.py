@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from scripts.simulation.anomaly_coordinator import create_coordinator
 from scripts.simulation.postgres.user_entity import UserEntity
 from scripts.simulation.dirty_data.postgres_dirty_injection import PostgresDirtyDataInjector
+from scripts.simulation.random_provider import RandomProvider
 
 
 class TestDeepcopyStreamingPattern:
@@ -17,7 +18,7 @@ class TestDeepcopyStreamingPattern:
         """Injectors yield entities one at a time (generator pattern)."""
         # Use coordinator for shared RandomProvider
         coordinator = create_coordinator(
-            seed=42,
+            random_provider=RandomProvider(seed=42),
             user_count=100,
             subscription_count=100,
             payment_count=100,
@@ -46,7 +47,7 @@ class TestDeepcopyStreamingPattern:
         """Each yielded entity is an independent deepcopy."""
         # Use coordinator for shared RandomProvider
         coordinator = create_coordinator(
-            seed=42,
+            random_provider=RandomProvider(seed=42),
             user_count=100,
             subscription_count=100,
             payment_count=100,

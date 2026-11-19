@@ -11,6 +11,7 @@ from scripts.simulation.postgres.user_entity import UserEntity
 from scripts.simulation.postgres.subscription_entity import SubscriptionEntity
 from scripts.simulation.postgres.payment_entity import PaymentEntity
 from scripts.simulation.dirty_data.postgres_dirty_injection import PostgresDirtyDataInjector
+from scripts.simulation.random_provider import RandomProvider
 
 
 class TestPristineObjectsUnchanged:
@@ -20,7 +21,7 @@ class TestPristineObjectsUnchanged:
         """Pristine user objects remain unchanged after dirty injection."""
         # Use coordinator for shared RandomProvider
         coordinator = create_coordinator(
-            seed=42,
+            random_provider=RandomProvider(seed=42),
             user_count=100,
             subscription_count=100,
             payment_count=100,
@@ -50,7 +51,7 @@ class TestPristineObjectsUnchanged:
         """Pristine subscription objects remain unchanged after dirty injection."""
         # Use coordinator for shared RandomProvider
         coordinator = create_coordinator(
-            seed=42,
+            random_provider=RandomProvider(seed=42),
             user_count=100,
             subscription_count=100,
             payment_count=100,
@@ -79,7 +80,7 @@ class TestPristineObjectsUnchanged:
         """Pristine payment objects remain unchanged after dirty injection."""
         # Use coordinator for shared RandomProvider
         coordinator = create_coordinator(
-            seed=42,
+            random_provider=RandomProvider(seed=42),
             user_count=100,
             subscription_count=100,
             payment_count=100,

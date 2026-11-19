@@ -64,7 +64,7 @@ class SparkConfig:
         # Environment-specific defaults
         env_defaults = {
             "development": {
-                "master_url": "local[*]",
+                "master_url": "spark://spark-master:7077",
                 "driver_memory": "2g",
                 "executor_memory": "2g",
                 "num_executors": 1,

@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from scripts.simulation.anomaly_coordinator import create_coordinator
 from scripts.simulation.dirty_data.mongo_dirty_injection import MongoDirtyDataInjector
+from scripts.simulation.random_provider import RandomProvider
 
 
 class TestMongoAnomalyRates:
@@ -16,7 +17,7 @@ class TestMongoAnomalyRates:
         """Video anomaly injection rate within bounds."""
         # Use coordinator to get shared RandomProvider and proper rate
         coordinator = create_coordinator(
-            seed=42,
+            random_provider=RandomProvider(seed=42),
             user_count=1000,
             subscription_count=2000,
             payment_count=4000,

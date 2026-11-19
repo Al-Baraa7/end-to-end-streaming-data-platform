@@ -250,6 +250,10 @@ class SessionFactory:
             avail_start = video_window.created_at
             avail_end = simulation_end
         
+        # CRITICAL FIX: Session cannot start before user's created_at (simulation_start)
+        # This anchors each user's session timeline to their actual registration time
+        avail_start = max(avail_start, simulation_start)
+        
         if avail_start >= avail_end:
             return None
         

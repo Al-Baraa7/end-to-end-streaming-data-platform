@@ -1,12 +1,13 @@
-"""PostgreSQL Dirty Data Injector — Phase 7: Anomaly Injection (PostgreSQL)
+"""
+PostgreSQL Dirty Data Injector - Phase 8: Anomaly Injection (PostgreSQL)
 
-Uses a shared RandomProvider for stratified, deterministic anomaly injection
-at a volume-weighted blended 3.5% rate (strictly bounded 1%-5% overall)
-across all entity types. The coordinator enforces global budget.
+Uses the single shared RandomProvider instance to inject independent, deterministic 
+anomalies directly across all PostgreSQL core entity types at a target rate of 3.5%.
 
 Applies deepcopy() micro-mutations on individual entity objects ONLY after
 they pass clean verification. The pristine master object remains untouched
 in memory for subsequent Kafka session/event telemetry.
+
 See README.md#phase-markers-used-in-code-comments
 """
 

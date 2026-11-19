@@ -1,6 +1,6 @@
 
 
-"""Video Events Producer — Phase 3: Kafka Event Emission (Transport)
+"""Video Events Producer — Phase 6: Event Pipeline Flattening (Transport)
 
 Produces InteractionEntity events to Kafka topic `video_interactions`.
 Optional dirty-injection hook for anomaly testing.
@@ -61,40 +61,7 @@ def produce_events(
     return count
 
 
-# def run_producer(
-#     *,
-#     clock: BusinessClock,
-#     random_provider: RandomProvider,
-#     user_ids,
-#     video_ids,
-#     event_count: int,
-# ):
-#     interaction_factory = InteractionFactory(
-#         clock=clock,
-#         random_provider=random_provider,
-#     )
 
-#     event_generator = interaction_factory.generate(
-#         user_ids=user_ids,
-#         video_ids=video_ids,
-#         count=event_count,
-#     )
-
-#     producer = create_producer()
-
-#     try:
-#         count = produce_events(
-#             producer=producer,
-#             event_generator=event_generator,
-#         )
-
-#         print(
-#             f"Kafka producer sent {count} events"
-#         )
-
-#     finally:
-#         producer.close()
-#         print("Kafka producer connection closed")
 def run_producer(
     *,
     clock: BusinessClock,

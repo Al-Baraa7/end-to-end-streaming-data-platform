@@ -1,12 +1,9 @@
-"""Global Anomaly Coordinator — Phase 5: Anomaly Injection (Volume-Weighted Blended Rate)
+"""Global Anomaly Coordinator — Phase 7: Anomaly Injection (Flat Target + LLN Convergence)
 
-Enforces a true volume-weighted blended anomaly rate of 3.5% (strictly bounded 1%-5%)
-across all data streams (PostgreSQL, MongoDB, Kafka). Uses a single shared
-RandomProvider instance to ensure deterministic, globally coordinated anomaly
-injection with no independent seeded instances.
-
-The coordinator calculates per-stream anomaly rates based on entity volumes
-to achieve the target blended rate organically.
+Enforces a flat target anomaly rate of 3.5% (strictly bounded 1%-5%) across individual data streams.
+Volume-weighted blending and statistical convergence to the global target are achieved naturally
+via the Law of Large Numbers and inherent Poisson Noise in the generation pipeline, rather than
+artificially partitioning budgets through procedural code.
 See README.md#phase-markers-used-in-code-comments
 """
 
@@ -25,15 +22,11 @@ class VolumeProfile:
 
 class GlobalAnomalyCoordinator:
     """
-    Global coordinator for volume-weighted blended anomaly injection.
-    
-    Ensures a true blended anomaly rate of 3.5% (bounded 1%-5% overall) across
-    all entity streams by:
-    1. Using a SINGLE shared RandomProvider (no independent seed=42 instances)
-    2. Calculating per-stream rates based on relative volumes
-    3. Enforcing MIN/MAX bounds on the blended rate
-    
-    The coordinator is the single source of truth for anomaly injection state.
+    Global coordinator for flat-target independent anomaly injection.
+
+        Ensures independent flat target anomaly assignments across entity streams
+        while allowing global weighted blending to emerge naturally through 
+        the Law of Large Numbers and statistical Poisson convergence.
     """
     
     # Target blended anomaly rate (3.5%)
@@ -42,22 +35,19 @@ class GlobalAnomalyCoordinator:
     MIN_BLENDED_RATE = 0.01
     MAX_BLENDED_RATE = 0.05
     
-    def __init__(self, seed: int = 42):
+    def __init__(self, random_provider: RandomProvider):
         """
-        Initialize with a single seed for the shared RandomProvider.
+        Initialize with a single shared RandomProvider instance.
+        """
         
-        Args:
-            seed: Random seed for reproducible global anomaly patterns. Default 42.
-        """
-        # Single shared RandomProvider - NO independent instances
-        self._random_provider = RandomProvider(seed=seed)
+        self._random_provider = random_provider
         self._volumes: Dict[str, VolumeProfile] = {}
         self._per_stream_rates: Dict[str, float] = {}
-        self._blended_rate: float = self.TARGET_BLENDED_RATE
-    
+        self._blended_rate = self.TARGET_BLENDED_RATE
+
     @property
     def random_provider(self) -> RandomProvider:
-        """Get the shared RandomProvider instance."""
+        """Return the shared random provider instance."""
         return self._random_provider
     
     def register_volume(self, entity_name: str, count: int) -> None:
@@ -72,12 +62,10 @@ class GlobalAnomalyCoordinator:
     
     def calculate_rates(self) -> Dict[str, float]:
         """
-        Calculate per-stream anomaly rates to achieve the target blended rate.
-        
-        Uses volume-weighted allocation: larger streams get rates closer to the
-        target, smaller streams may vary slightly but the weighted average
-        hits exactly the target blended rate.
-        
+        Assigns an independent flat target rate of 3.5% across all registered data streams.
+        Volume-weighted blending and statistical convergence to the global target are 
+        achieved naturally via the Law of Large Numbers and inherent Poisson Noise.
+
         Returns:
             Dictionary mapping entity_name to its calculated anomaly rate.
         """
@@ -92,8 +80,10 @@ class GlobalAnomalyCoordinator:
         for name, profile in self._volumes.items():
             self._per_stream_rates[name] = self.TARGET_BLENDED_RATE
         
+        
         # Verify blended rate is within bounds
         self._blended_rate = self.TARGET_BLENDED_RATE
+        
         if not (self.MIN_BLENDED_RATE <= self._blended_rate <= self.MAX_BLENDED_RATE):
             raise ValueError(
                 f"Blended anomaly rate {self._blended_rate:.4f} outside bounds "
@@ -144,33 +134,34 @@ class GlobalAnomalyCoordinator:
         }
 
 
-# -- Phase 5: Convenience Factory --
+
+# -- Phase 7: Convenience Factory --
 
 def create_coordinator(
-    seed: int = 42,
-    *,
+    random_provider: RandomProvider,
     user_count: int = 0,
     subscription_count: int = 0,
     payment_count: int = 0,
     video_count: int = 0,
-    event_count: int = 0,
+    event_count: int = 0
 ) -> GlobalAnomalyCoordinator:
     """
-    Create and configure a GlobalAnomalyCoordinator with typical entity counts.
-    
+    Create and configure a GlobalAnomalyCoordinator with typical entity volumes.
+
     Args:
-        seed: Random seed for the shared provider
-        user_count: Number of users
-        subscription_count: Number of subscriptions
-        payment_count: Number of payments
-        video_count: Number of videos
-        event_count: Number of Kafka events
-        
+        random_provider: The shared single source of truth RandomProvider instance.
+        user_count: Number of users.
+        subscription_count: Number of subscriptions.
+        payment_count: Number of payments.
+        video_count: Number of videos.
+        event_count: Number of Kafka events.
+
     Returns:
-        Configured GlobalAnomalyCoordinator instance
+        Configured GlobalAnomalyCoordinator instance.
     """
-    coordinator = GlobalAnomalyCoordinator(seed=seed)
+    coordinator = GlobalAnomalyCoordinator(random_provider=random_provider)
     
+    # الحل الجذري: نمرر الأرقام الصحيحة مباشرة (int) للدالة لمنع الـ TypeError
     if user_count > 0:
         coordinator.register_volume("postgres_users", user_count)
     if subscription_count > 0:
@@ -181,6 +172,6 @@ def create_coordinator(
         coordinator.register_volume("mongo_videos", video_count)
     if event_count > 0:
         coordinator.register_volume("kafka_events", event_count)
-    
+        
     coordinator.calculate_rates()
     return coordinator

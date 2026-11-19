@@ -1,12 +1,13 @@
-"""MongoDB Dirty Data Injector — Phase 7: Anomaly Injection (MongoDB)
+"""
+MongoDB Dirty Data Injector - Phase 8: Anomaly Injection (MongoDB)
 
-Uses a shared RandomProvider for stratified, deterministic anomaly injection
-at a volume-weighted blended 3.5% rate (strictly bounded 1%-5% overall)
-across video entities. The coordinator enforces global budget.
+Uses the single shared RandomProvider instance to inject independent, deterministic 
+anomalies directly into MongoDB video entities at a target rate of 3.5%.
 
 Applies deepcopy() micro-mutations on individual entity objects ONLY after
 they pass clean verification. The pristine master object remains untouched
 in memory for subsequent Kafka session/event telemetry.
+
 See README.md#phase-markers-used-in-code-comments
 """
 

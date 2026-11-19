@@ -8,3 +8,7 @@ spark-warehouse/
 aws-java-sdk-bundle-1.12.262.jar/
 hadoop-aws-3.3.4.jar/
 jars/
+scripts/storage/silver/notebooks/archive/
+.pytest_cache/
+*.duckdb
+*.duckdb.wal

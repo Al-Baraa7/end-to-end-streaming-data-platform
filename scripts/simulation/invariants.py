@@ -1,4 +1,5 @@
-"""Invariants — Phase 9: Invariants & Validation
+"""Invariants & Quality Gates Library
+Cross-cutting validation engine executed via progressive gates across runtime phases.
 
 Canonical invariant checkers (R1, R2, R4, R5, R13). No credential-dependent logic — reused by tests and pipeline.
 See README.md#phase-markers-used-in-code-comments
@@ -55,7 +56,7 @@ def _normalize_subscription_interval(interval: Union[SubscriptionInterval, Subsc
     )
 
 
-# -- Phase 9: R1/R2 Subscription Non-Overlapping & Horizon Containment --
+# -- Quality Gate I: R1/R2 Subscription Non-Overlapping & Horizon Containment --
 
 def assert_subscriptions_non_overlapping(
     user_subscriptions_map: Dict[str, List[Union[SubscriptionInterval, SubscriptionEntity]]],
@@ -116,7 +117,7 @@ class _VideoAvailabilityWindow(Protocol):
     live_end_at: Optional[datetime]
 
 
-# -- Phase 9: R13 Video Reachability (Popularity Normalizer) --
+# -- Quality Gate II: R13 Video Reachability (Popularity Normalizer) --
 
 def assert_video_availability_windows_reachable(
     video_windows: Iterable[_VideoAvailabilityWindow],
@@ -155,7 +156,7 @@ def assert_video_availability_windows_reachable(
         )
 
 
-# -- Phase 9: R4 Match Concept (Single Source of Truth) --
+# -- Quality Gate III: R4 Match Concept (Single Source of Truth) --
 
 def assert_match_artifacts_unified(videos: Iterable[Mapping[str, Any]]) -> None:
     """
@@ -240,7 +241,7 @@ def assert_match_artifacts_unified(videos: Iterable[Mapping[str, Any]]) -> None:
         )
 
 
-# -- Phase 9: R5 Video Temporal Integrity --
+# -- Quality Gate IV: R5 Video Temporal Integrity --
 
 def assert_match_artifact_temporal_integrity(
     videos: Iterable[Mapping[str, Any]],

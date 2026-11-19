@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from scripts.simulation.anomaly_coordinator import create_coordinator
 from scripts.simulation.dirty_data.kafka_dirty_injection import KafkaDirtyDataInjector
 from scripts.simulation.kafka.interaction_entity import InteractionEntity
+from scripts.simulation.random_provider import RandomProvider
 
 
 class TestKafkaAnomalyRates:
@@ -17,7 +18,7 @@ class TestKafkaAnomalyRates:
         """Kafka event anomaly injection rate within bounds."""
         # Use coordinator to get shared RandomProvider and proper rate
         coordinator = create_coordinator(
-            seed=42,
+            random_provider=RandomProvider(seed=42),
             user_count=1000,
             subscription_count=2000,
             payment_count=4000,

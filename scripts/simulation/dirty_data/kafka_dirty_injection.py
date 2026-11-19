@@ -1,12 +1,13 @@
-"""Kafka Dirty Data Injector — Phase 7: Anomaly Injection (Kafka)
+"""
+Kafka Dirty Data Injector - Phase 8: Anomaly Injection (Kafka)
 
-Uses a shared RandomProvider for stratified, deterministic anomaly injection
-at a volume-weighted blended 3.5% rate (strictly bounded 1%-5% overall)
-across Kafka event entities. The coordinator enforces global budget.
+Uses the single shared RandomProvider instance to inject independent, deterministic 
+anomalies directly into Kafka event streams at a target rate of 3.5%.
 
 Applies deepcopy() micro-mutations on individual entity objects ONLY after
 they pass clean verification. The pristine master object remains untouched
 in memory for subsequent Kafka session/event telemetry.
+
 See README.md#phase-markers-used-in-code-comments
 """
 
@@ -17,8 +18,8 @@ from typing import Iterator, List
 from ..random_provider import RandomProvider
 
 # Valid interaction types and device types from interaction_factory
-VALID_INTERACTION_TYPES = ("play", "pause", "seek", "like", "complete")
-VALID_DEVICE_TYPES = ("mobile", "desktop", "tablet", "tv")
+VALID_INTERACTION_TYPES = ("play", "pause", "like", "complete")
+VALID_DEVICE_TYPES = ("mobile", "tablet", "tv")
 
 
 class KafkaDirtyDataInjector:
